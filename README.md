@@ -7,6 +7,7 @@ On an Ubuntu Linux system, the following tools are required to get the make step
 qemu-system-x86
 nasm
 mtools
+bochs bochs-sdl bochsbios vgabios
 
 # Build Steps
 From the main directory, run 'make'. Then, run the following command:
