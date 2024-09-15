@@ -60,14 +60,74 @@ main:
 
 	; print OS name
 	mov si, os_header
+	;call grab_keyboard_input
 	call puts
+
+	; Save and store an up to 47 character string
+.typing:
+	mov si, user_input_buffer
+	mov bx, 50
+	call grab_keyboard_input
+	jmp .typing
 	
 	cli									; disable interrupts so CPU can't get out of "halt" state
 	hlt
 
 
 ;
-; Prints a string to the string.
+; Creates a string of max length 9 plus a null character
+; Params:
+;	ds:si points to a byte buffer
+;	bx: number of bytes in buffer
+;
+grab_keyboard_input:
+	push si
+	push ax
+	push bx
+
+	add bx, -3 			; add space for newline and terminating char
+
+	; read a keypress
+	; TODO: remove a character if a backspace is pressed
+.read:
+	mov ax, 0 			; set ah to read a key press
+	int 0x16			; call keyboard interrupt
+	cmp al, 0x0d
+	je .null_char		; add null character early if done typing
+	mov [si], al 		; move keyboard character to location of buffer
+
+	; print to screen
+	mov ah, 0x0e		; set teletype output
+	mov bh,0 			; set page number to 0
+	int 0x10 			; write buffer to terminal
+	inc si				; move to next byte in buffer
+
+	dec bx
+	test bx, bx
+	jz .null_char
+	jmp .read
+
+	; add endline and terminating character
+.null_char:
+	mov bl, 0xA
+	mov [si], bl
+	inc si
+	mov bl, 0xD
+	mov [si], bl
+	inc si
+	mov bl, 0
+	mov [si], bl		; add ENDL and null character
+	add si, -2
+	call puts			; print rest of screen
+
+	pop bx
+	pop ax
+	pop si
+	ret
+
+
+;
+; Prints a string to the display.
 ; Params:
 ; 	- ds:si points to string
 ;
@@ -222,6 +282,7 @@ disk_reset:
 
 os_header: 								db 'Welcome to Hegter OS.', ENDL, 0
 msg_read_failed:						db 'Read from disk failed!', ENDL, 0
+user_input_buffer:						db 50
 
 times 510-($-$$) db 0
 dw 0AA55h
