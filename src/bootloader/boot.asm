@@ -84,15 +84,16 @@ grab_keyboard_input:
 	push si
 	push ax
 	push bx
+	push cx
 
 	add bx, -3 			; add space for newline and terminating char
+	mov cx, bx			; store the size of user data
 
 	; read a keypress
-	; TODO: remove a character if a backspace is pressed
 .read:
 	mov ax, 0 			; set ah to read a key press
 	int 0x16			; call keyboard interrupt
-	cmp al, 0x0d
+	cmp al, 0x0d		; check if return character was inputted
 	je .null_char		; add null character early if done typing
 	mov [si], al 		; move keyboard character to location of buffer
 
@@ -100,12 +101,27 @@ grab_keyboard_input:
 	mov ah, 0x0e		; set teletype output
 	mov bh,0 			; set page number to 0
 	int 0x10 			; write buffer to terminal
-	inc si				; move to next byte in buffer
 
+	cmp al, 0x08		; check if backspace
+	je .backspace		; remove letter from buffer
+	
+	inc si				; move to next byte in buffer
 	dec bx
 	test bx, bx
 	jz .null_char
 	jmp .read
+
+	; handle when the user deletes a character
+	; TODO: place an empty character where previous character used to be
+.backspace:
+	cmp cx, bx
+	je .read			; ignore backspace if at the start of buffer
+	inc bx
+	dec si 				; go to previous buffer position
+	mov al, 0
+	mov [si], al 		; delete character from buffer
+	jmp .read
+	
 
 	; add endline and terminating character
 .null_char:
@@ -120,6 +136,7 @@ grab_keyboard_input:
 	add si, -2
 	call puts			; print rest of screen
 
+	pop cx
 	pop bx
 	pop ax
 	pop si
